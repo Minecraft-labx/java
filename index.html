@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MINECRAFT FPS BENCHMARK v2.7</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #1a1a2e;
+  font-family: 'Press Start 2P', monospace;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  image-rendering: pixelated;
+  cursor: crosshair;
+}
+
+#bg-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+#ui-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+
+/* ─── HOTBAR ─── */
+#hotbar {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  background: rgba(0,0,0,0.7);
+  border: 3px solid #555;
+  border-radius: 4px;
+  z-index: 10;
+  pointer-events: auto;
+  image-rendering: pixelated;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.8), inset 0 0 0 2px #2a2a2a;
+}
+
+.hotbar-slot {
+  width: 58px;
+  height: 58px;
+  background: #8b8b8b;
+  border: 2px solid #373737;
+  position: relative;
+  transition: all 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: inset 0 0 0 1px #555;
+}
+
+.hotbar-slot.active {
+  border: 2px solid #fff;
+  box-shadow: 0 0 12px rgba(255,255,255,0.4), inset 0 0 0 1px #fff;
+  transform: scale(1.05);
+}
+
+.hotbar-slot .count {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-size: 10px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  font-family: 'Press Start 2P', monospace;
+}
+
+.hotbar-slot .slot-key {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px;
+  color: #aaa;
+  text-shadow: 1px 1px 0 #000;
+}
+
+/* ─── FPS COUNTER ─── */
+#fps-counter {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  pointer-events: none;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 12px;
+  color: #55ff55;
+  text-shadow: 2px 2px 0 #003300;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.5;
+}
+
+#fps-counter .label {
+  color: #aaa;
+  font-size: 8px;
+}
+
+.fps-low { color: #ff5555 !important; }
+.fps-mid { color: #ffff55 !important; }
+.fps-high { color: #55ff55 !important; }
+
+/* ─── CROSSHAIR ─── */
+#crosshair {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  pointer-events: none;
+}
+
+#crosshair::before,
+#crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(255,255,255,0.8);
+}
+
+#crosshair::before {
+  width: 2px;
+  height: 20px;
+  top: -10px;
+  left: -1px;
+}
+
+#crosshair::after {
+  width: 20px;
+  height: 2px;
+  top: -1px;
+  left: -10px;
+}
+
+.crosshair-dot {
+  width: 4px;
+  height: 4px;
+  background: rgba(255,255,255,0.9);
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  border-radius: 50%;
+}
+
+/* ─── MENU PANEL ─── */
+#menu-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  pointer-events: auto;
+  background: rgba(0,0,0,0.85);
+  border: 4px solid #555;
+  padding: 30px 40px;
+  min-width: 420px;
+  box-shadow: 0 0 60px rgba(0,0,0,0.9), inset 0 0 0 2px #2a2a2a;
+  display: none;
+}
+
+#menu-panel.active {
+  display: block;
+}
+
+#menu-panel h1 {
+  color: #ffff55;
+  font-size: 18px;
+  text-align: center;
+  margin-bottom: 24px;
+  text-shadow: 3px 3px 0 #3a3a00;
+  letter-spacing: 2px;
+}
+
+.menu-btn {
+  display: block;
+  width: 100%;
+  padding: 14px 20px;
+  margin-bottom: 8px;
+  background: #555;
+  border: 3px solid #373737;
+  color: #fff;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.1s;
+  text-align: left;
+  text-shadow: 1px 1px 0 #000;
+  box-shadow: inset 0 0 0 1px #777;
+}
+
+.menu-btn:hover {
+  background: #777;
+  border-color: #ffff55;
+  transform: translateX(4px);
+  box-shadow: 0 0 20px rgba(255,255,85,0.2);
+}
+
+.menu-btn .key-hint {
+  float: right;
+  color: #888;
+  font-size: 8px;
+  padding-top: 3px;
+}
+
+/* ─── HEALTH / HUNGER ─── */
+#stats {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  pointer-events: none;
+  display: flex;
+  gap: 40px;
+  font-size: 18px;
+  color: #fff;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.stat-group {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  max-width: 180px;
+  justify-content: center;
+}
+
+/* ─── CHAT ─── */
+#chat {
+  position: fixed;
+  bottom: 110px;
+  left: 20px;
+  z-index: 5;
+  pointer-events: none;
+  font-size: 10px;
+  line-height: 1.8;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.chat-msg {
+  color: #fff;
+  opacity: 0;
+  animation: chatFade 5s forwards;
+}
+
+.chat-msg .name {
+  color: #55ffff;
+}
+
+@keyframes chatFade {
+  0% { opacity: 0; transform: translateY(10px); }
+  8% { opacity: 1; transform: translateY(0); }
+  75% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ─── DEBUG / BENCHMARK ─── */
+#bench-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 25;
+  pointer-events: auto;
+  background: rgba(0,0,0,0.92);
+  border: 4px solid #55ff55;
+  padding: 30px;
+  min-width: 500px;
+  box-shadow: 0 0 80px rgba(85,255,85,0.15);
+  display: none;
+}
+
+#bench-panel.active {
+  display: block;
+}
+
+#bench-panel h2 {
+  color: #55ff55;
+  font-size: 14px;
+  margin-bottom: 18px;
+  text-shadow: 2px 2px 0 #003300;
+}
+
+.bench-stat {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #333;
+  color: #aaa;
+  font-size: 10px;
+}
+
+.bench-stat .value {
+  color: #fff;
+}
+
+.bench-bar {
+  height: 6px;
+  background: #222;
+  margin: 8px 0 14px 0;
+  border: 1px solid #444;
+}
+
+.bench-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #ff5555, #ffff55, #55ff55);
+  transition: width 0.5s;
+}
+
+/* ─── PARTICLES ─── */
+.particle {
+  position: fixed;
+  pointer-events: none;
+  z-index: 2;
+  image-rendering: pixelated;
+  width: 16px;
+  height: 16px;
+}
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:600px){
+  #menu-panel { min-width: 90vw; padding: 20px; }
+  #menu-panel h1 { font-size: 13px; }
+  .menu-btn { font-size: 9px; padding: 12px; }
+  #hotbar { bottom: 15px; }
+  .hotbar-slot { width: 42px; height: 42px; font-size: 16px; }
+  #stats { bottom: 80px; gap: 20px; font-size: 14px; }
+  #bench-panel { min-width: 90vw; }
+}
+
+/* ─── MINECRAFT FONT FALLBACK ─── */
+@font-face {
+  font-family: 'Minecraft';
+  src: local('Courier New');
+}
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+
+<div id="crosshair"><div class="crosshair-dot"></div></div>
+
+<div id="fps-counter">
+  <div><span class="label">FPS</span> <span id="fps-value" class="fps-high">0</span></div>
+  <div><span class="label">MS</span> <span id="ms-value">0</span></div>
+  <div><span class="label">MEM</span> <span id="mem-value">0 MB</span></div>
+</div>
+
+<div id="stats">
+  <div class="stat-group" id="health-display"></div>
+  <div class="stat-group" id="hunger-display"></div>
+</div>
+
+<div id="chat">
+  <div class="chat-msg"><span class="name">[SERVER]</span> Welcome to BlockFPS v2.7</div>
+  <div class="chat-msg"><span class="name">[SERVER]</span> Press ESC for menu</div>
+</div>
+
+<div id="hotbar">
+  <div class="hotbar-slot active" data-key="1"><span class="slot-key">1</span>🗡️<span class="count">1</span></div>
+  <div class="hotbar-slot" data-key="2"><span class="slot-key">2</span>🏹<span class="count">32</span></div>
+  <div class="hotbar-slot" data-key="3"><span class="slot-key">3</span>🧱<span class="count">64</span></div>
+  <div class="hotbar-slot" data-key="4"><span class="slot-key">4</span>🍎<span class="count">12</span></div>
+  <div class="hotbar-slot" data-key="5"><span class="slot-key">5</span>💎<span class="count">3</span></div>
+  <div class="hotbar-slot" data-key="6"><span class="slot-key">6</span>⚔️<span class="count">1</span></div>
+  <div class="hotbar-slot" data-key="7"><span class="slot-key">7</span>🪣<span class="count">1</span></div>
+  <div class="hotbar-slot" data-key="8"><span class="slot-key">8</span>🧨<span class="count">8</span></div>
+  <div class="hotbar-slot" data-key="9"><span class="slot-key">9</span>🧭<span class="count">1</span></div>
+</div>
+
+<div id="menu-panel">
+  <h1>⛏️ BLOCKFPS BENCHMARK</h1>
+  <button class="menu-btn" onclick="runBenchmark()">RUN FPS BENCHMARK <span class="key-hint">[B]</span></button>
+  <button class="menu-btn" onclick="toggleParticles()">PARTICLE MODE: <span id="particle-status">ON</span> <span class="key-hint">[P]</span></button>
+  <button class="menu-btn" onclick="toggleRenderMode()">RENDER MODE: <span id="render-status">SOLID</span> <span class="key-hint">[R]</span></button>
+  <button class="menu-btn" onclick="resetWorld()">RESET WORLD <span class="key-hint">[X]</span></button>
+  <button class="menu-btn" onclick="closeMenu()" style="margin-top:12px;border-color:#ff5555;color:#ff5555;">CLOSE <span class="key-hint">[ESC]</span></button>
+</div>
+
+<div id="bench-panel">
+  <h2>⏱️ BENCHMARK RESULTS</h2>
+  <div class="bench-stat">Average FPS <span class="value" id="bench-avg">--</span></div>
+  <div class="bench-stat">Peak FPS <span class="value" id="bench-peak">--</span></div>
+  <div class="bench-stat">Low FPS <span class="value" id="bench-low">--</span></div>
+  <div class="bench-stat">Frame Time (avg) <span class="value" id="bench-frametime">--</span></div>
+  <div class="bench-stat">Score <span class="value" id="bench-score">--</span></div>
+  <div class="bench-bar"><div class="bench-bar-fill" id="bench-bar-fill"></div></div>
+  <div class="bench-stat" style="border:none;padding-top:0;">Render Objects <span class="value" id="bench-objects">--</span></div>
+  <button class="menu-btn" onclick="closeBench()" style="margin-top:12px;text-align:center;border-color:#ff5555;color:#ff5555;">CLOSE [ESC]</button>
+</div>
+
+<script>
+// ─── CANVAS SETUP ───
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ─── WORLD STATE ───
+const blocks = [];
+const PARTICLE_COLORS = ['#7c7c7c','#5a5a5a','#8b8b8b','#4a4a4a','#6a6a6a','#9a9a9a','#3a3a3a','#aaaaaa'];
+const BLOCK_TYPES = [
+  { name: 'stone', color: '#7c7c7c', highlight: '#8f8f8f' },
+  { name: 'dirt', color: '#8b5e3c', highlight: '#a0704a' },
+  { name: 'grass', color: '#5a8a3c', highlight: '#6a9a4a' },
+  { name: 'wood', color: '#6b4a2e', highlight: '#7d5a3a' },
+  { name: 'cobble', color: '#6a6a6a', highlight: '#7a7a7a' },
+  { name: 'brick', color: '#8a4a3a', highlight: '#9a5a4a' },
+  { name: 'gold', color: '#ffcc44', highlight: '#ffdd55' },
+  { name: 'diamond', color: '#44ccdd', highlight: '#55ddee' }
+];
+
+let particleMode = true;
+let renderMode = 'solid'; // solid, wireframe, glow
+let worldRotation = 0;
+let worldOffsetX = 0;
+let worldOffsetY = 0;
+let mouseX = 0, mouseY = 0;
+let targetMX = 0, targetMY = 0;
+
+const MAX_BLOCKS = 420;
+const GRID_SPACING = 52;
+const GRID_COLS = 12;
+const GRID_ROWS = 8;
+
+// ─── HEALTH SYSTEM ───
+let health = 20;
+let hunger = 20;
+let lastDamage = 0;
+
+function initWorld() {
+  blocks.length = 0;
+  for (let i = 0; i < MAX_BLOCKS; i++) {
+    const col = i % GRID_COLS;
+    const row = Math.floor(i / GRID_COLS);
+    const type = BLOCK_TYPES[Math.floor(Math.random() * BLOCK_TYPES.length)];
+    blocks.push({
+      x: (col - GRID_COLS/2) * GRID_SPACING + (Math.random()-0.5)*10,
+      y: (row - GRID_ROWS/2) * GRID_SPACING + (Math.random()-0.5)*10,
+      z: Math.random() * 300 - 150,
+      w: 28 + Math.random() * 20,
+      h: 28 + Math.random() * 20,
+      type: type,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.3 + Math.random() * 0.5,
+      rot: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.01,
+      alpha: 0.7 + Math.random() * 0.3,
+      pulse: Math.random() * 100
+    });
+  }
+}
+initWorld();
+
+// ─── PARTICLES ───
+const particles = [];
+
+function spawnParticles(x, y, count) {
+  if (!particleMode) return;
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1 + Math.random() * 4;
+    particles.push({
+      x: x,
+      y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      decay: 0.008 + Math.random() * 0.015,
+      size: 4 + Math.random() * 8,
+      color: PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)]
+    });
+  }
+}
+
+let particleSpawnTimer = 0;
+
+// ─── RENDER MODE ───
+function toggleRenderMode() {
+  const modes = ['solid', 'wireframe', 'glow'];
+  let idx = modes.indexOf(renderMode);
+  renderMode = modes[(idx + 1) % modes.length];
+  document.getElementById('render-status').textContent = renderMode.toUpperCase();
+  addChat('[SYSTEM]', `Render mode set to §e${renderMode}`);
+}
+
+function toggleParticles() {
+  particleMode = !particleMode;
+  document.getElementById('particle-status').textContent = particleMode ? 'ON' : 'OFF';
+  addChat('[SYSTEM]', `Particles ${particleMode ? '§aON' : '§cOFF'}`);
+}
+
+function resetWorld() {
+  initWorld();
+  addChat('[SYSTEM]', '§aWorld regenerated');
+}
+
+// ─── DRAW ───
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Sky gradient
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+  skyGrad.addColorStop(0, '#0a0a2e');
+  skyGrad.addColorStop(0.5, '#1a1a3e');
+  skyGrad.addColorStop(1, '#2a1a1e');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  for (let i = 0; i < 60; i++) {
+    const sx = (i * 137.5 + worldOffsetX * 0.01) % W;
+    const sy = (i * 97.3 + worldOffsetY * 0.01) % H;
+    const s = 1 + Math.sin(Date.now() * 0.001 + i) * 0.5;
+    ctx.fillRect(sx, sy, s, s);
+  }
+
+  // Sort blocks by Z for pseudo-3D
+  const sorted = [...blocks].sort((a, b) => b.z - a.z);
+
+  worldRotation += 0.001;
+
+  for (const block of sorted) {
+    const cx = block.x + worldOffsetX;
+    const cy = block.y + worldOffsetY;
+    const cz = block.z;
+
+    // Perspective
+    const perspective = 400 / (400 + cz);
+    const screenX = W/2 + (cx * perspective) + Math.sin(worldRotation + block.phase) * 20;
+    const screenY = H/2 + (cy * perspective) + Math.cos(worldRotation * 0.7 + block.phase) * 15;
+    const sizeW = block.w * perspective;
+    const sizeH = block.h * perspective;
+
+    block.rot += block.rotSpeed;
+    block.pulse += 0.02;
+
+    // Mouse parallax
+    const parallaxX = (mouseX - W/2) * 0.0003 * perspective;
+    const parallaxY = (mouseY - H/2) * 0.0003 * perspective;
+    const finalX = screenX + parallaxX * cz * 0.01;
+    const finalY = screenY + parallaxY * cz * 0.01;
+
+    const pulseOffset = Math.sin(block.pulse) * 2;
+    const finalW = sizeW + pulseOffset;
+    const finalH = sizeH + pulseOffset;
+
+    if (finalX < -60 || finalX > W + 60 || finalY < -60 || finalY > H + 60) continue;
+
+    ctx.save();
+    ctx.translate(finalX, finalY);
+    ctx.rotate(block.rot);
+    ctx.globalAlpha = block.alpha * (0.6 + perspective * 0.4);
+
+    if (renderMode === 'wireframe') {
+      ctx.strokeStyle = block.type.highlight;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(-finalW/2, -finalH/2, finalW, finalH);
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(-finalW/2 + 4, -finalH/2 + 4, finalW - 8, finalH - 8);
+    } else if (renderMode === 'glow') {
+      ctx.shadowColor = block.type.highlight;
+      ctx.shadowBlur = 25;
+      ctx.fillStyle = block.type.color;
+      ctx.fillRect(-finalW/2, -finalH/2, finalW, finalH);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = block.type.highlight;
+      ctx.globalAlpha = 0.3;
+      ctx.fillRect(-finalW/2 + 3, -finalH/2 + 3, finalW - 6, finalH - 6);
+    } else {
+      // Solid with pixel shading
+      ctx.fillStyle = block.type.color;
+      ctx.fillRect(-finalW/2, -finalH/2, finalW, finalH);
+
+      // Top highlight (like minecraft lighting)
+      ctx.fillStyle = block.type.highlight;
+      ctx.globalAlpha = 0.3;
+      ctx.fillRect(-finalW/2, -finalH/2, finalW, 4);
+      ctx.fillRect(-finalW/2, -finalH/2, 4, finalH);
+
+      // Border
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-finalW/2, -finalH/2, finalW, finalH);
+
+      // Inner pixel pattern
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      for (let px = -finalW/2 + 6; px < finalW/2; px += 8) {
+        for (let py = -finalH/2 + 6; py < finalH/2; py += 8) {
+          if ((Math.floor(px/8) + Math.floor(py/8)) % 2 === 0) {
+            ctx.fillRect(px, py, 3, 3);
+          }
+        }
+      }
+    }
+
+    ctx.restore();
+  }
+
+  // Particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.05; // gravity
+    p.vx *= 0.99;
+    p.vy *= 0.99;
+    p.life -= p.decay;
+
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    const sz = p.size * p.life;
+    ctx.fillRect(p.x - sz/2, p.y - sz/2, sz, sz);
+  }
+  ctx.globalAlpha = 1;
+
+  // Spawn floating particles
+  particleSpawnTimer++;
+  if (particleSpawnTimer > 5 && particleMode) {
+    particleSpawnTimer = 0;
+    const randBlock = blocks[Math.floor(Math.random() * blocks.length)];
+    if (randBlock) spawnParticles(
+      W/2 + (randBlock.x + worldOffsetX) * (400 / (400 + randBlock.z)),
+      H/2 + (randBlock.y + worldOffsetY) * (400 / (400 + randBlock.z)),
+      1
+    );
+  }
+}
+
+// ─── ANIMATION LOOP ───
+let frameCount = 0;
+let lastFpsUpdate = 0;
+let currentFps = 0;
+let fpsSamples = [];
+let isBenchmarking = false;
+let benchSamples = [];
+let benchStart = 0;
+let mouseSway = 0;
+
+function animate(timestamp) {
+  frameCount++;
+
+  // FPS calculation
+  if (timestamp - lastFpsUpdate > 200) {
+    currentFps = Math.round(frameCount / ((timestamp - lastFpsUpdate) / 1000));
+    frameCount = 0;
+    lastFpsUpdate = timestamp;
+
+    const fpsEl = document.getElementById('fps-value');
+    fpsEl.textContent = currentFps;
+    fpsEl.className = currentFps < 30 ? 'fps-low' : currentFps < 55 ? 'fps-mid' : 'fps-high';
+
+    document.getElementById('ms-value').textContent = (1000 / (currentFps || 1)).toFixed(1);
+
+    if (window.performance && window.performance.memory) {
+      const mem = window.performance.memory.usedJSHeapSize;
+      document.getElementById('mem-value').textContent = (mem / 1048576).toFixed(1) + ' MB';
+    }
+
+    fpsSamples.push(currentFps);
+    if (fpsSamples.length > 300) fpsSamples.shift();
+
+    if (isBenchmarking) {
+      benchSamples.push(currentFps);
+    }
+  }
+
+  // Mouse sway
+  mouseSway += 0.02;
+  worldOffsetX = Math.sin(mouseSway) * 5 + (targetMX - W/2) * 0.002;
+  worldOffsetY = Math.cos(mouseSway * 0.7) * 3 + (targetMY - H/2) * 0.002;
+
+  // Block pulse
+  for (const b of blocks) {
+    b.pulse += 0.015;
+  }
+
+  draw();
+
+  // Heal over time
+  if (Date.now() - lastDamage > 3000 && health < 20) {
+    health = Math.min(20, health + 0.2);
+    updateStats();
+  }
+  if (Date.now() - lastDamage > 5000 && hunger < 20) {
+    hunger = Math.min(20, hunger + 0.1);
+    updateStats();
+  }
+
+  requestAnimationFrame(animate);
+}
+
+// ─── HEALTH / HUNGER DRAW ───
+function updateStats() {
+  const healthEl = document.getElementById('health-display');
+  const hungerEl = document.getElementById('hunger-display');
+  healthEl.innerHTML = '';
+  hungerEl.innerHTML = '';
+  for (let i = 0; i < 20; i++) {
+    const h = document.createElement('span');
+    h.textContent = i < Math.round(health) ? '❤️' : '🖤';
+    h.style.fontSize = '14px';
+    healthEl.appendChild(h);
+    const u = document.createElement('span');
+    u.textContent = i < Math.round(hunger) ? '🍖' : '🫗';
+    u.style.fontSize = '14px';
+    hungerEl.appendChild(u);
+  }
+}
+updateStats();
+
+function damage(amount) {
+  health = Math.max(0, health - amount);
+  lastDamage = Date.now();
+  updateStats();
+  if (health <= 0) {
+    health = 20;
+    hunger = 20;
+    updateStats();
+    addChat('[DEATH]', '§cYou died! Respawning...');
+    initWorld();
+  }
+}
+
+// ─── CHAT ───
+function addChat(name, msg) {
+  const chat = document.getElementById('chat');
+  const el = document.createElement('div');
+  el.className = 'chat-msg';
+  const colored = msg.replace(/§([a-f0-9])/g, (m,c) => {
+    const colors = {a:'#55ff55',c:'#ff5555',e:'#ffff55',b:'#55ffff',d:'#ff55ff',f:'#ffffff'};
+    return `<span style="color:${colors[c]||'#fff'}">`;
+  });
+  el.innerHTML = `<span class="name">${name}</span> ${colored}`;
+  chat.appendChild(el);
+  while (chat.children.length > 8) chat.removeChild(chat.firstChild);
+}
+
+// ─── BENCHMARK ───
+function runBenchmark() {
+  if (isBenchmarking) return;
+  isBenchmarking = true;
+  benchSamples = [];
+  const dur = 5000;
+  const start = Date.now();
+  const panel = document.getElementById('bench-panel');
+  const overlay = document.getElementById('menu-panel');
+  overlay.classList.remove('active');
+  panel.classList.add('active');
+
+  addChat('[BENCH]', '§eBenchmark started...');
+
+  const interval = setInterval(() => {
+    const elapsed = Date.now() - start;
+    const progress = Math.min(1, elapsed / dur);
+    document.getElementById('bench-bar-fill').style.width = (progress * 100) + '%';
+    document.getElementById('bench-objects').textContent = blocks.length + ' blocks, ' + particles.length + ' particles';
+
+    if (elapsed >= dur) {
+      clearInterval(interval);
+      finishBenchmark();
+    }
+  }, 100);
+}
+
+function finishBenchmark() {
+  isBenchmarking = false;
+  const samples = benchSamples;
+  if (samples.length === 0) return;
+
+  const avg = samples.reduce((a,b)=>a+b,0) / samples.length;
+  const peak = Math.max(...samples);
+  const low = Math.min(...samples);
+  const frametime = 1000 / avg;
+  const score = Math.round(avg * 10 + (peak - low) * 2 + (avg > 60 ? 200 : 0));
+
+  document.getElementById('bench-avg').textContent = avg.toFixed(1);
+  document.getElementById('bench-peak').textContent = peak;
+  document.getElementById('bench-low').textContent = low;
+  document.getElementById('bench-frametime').textContent = frametime.toFixed(2) + 'ms';
+  document.getElementById('bench-score').textContent = score;
+  document.getElementById('bench-bar-fill').style.width = Math.min(100, score / 10) + '%';
+  document.getElementById('bench-objects').textContent = blocks.length + ' blocks, ' + particles.length + ' particles';
+
+  const grade = score > 800 ? '§aS+' : score > 600 ? '§bA' : score > 400 ? '§eB' : score > 200 ? '§6C' : '§cD';
+  addChat('[BENCH]', `${grade} Score: ${score} | Avg: ${avg.toFixed(1)} FPS | Peak: ${peak} | Low: ${low}`);
+}
+
+function closeBench() {
+  document.getElementById('bench-panel').classList.remove('active');
+}
+
+function closeMenu() {
+  document.getElementById('menu-panel').classList.remove('active');
+}
+
+// ─── MENU ───
+let menuOpen = false;
+
+function toggleMenu() {
+  menuOpen = !menuOpen;
+  document.getElementById('menu-panel').classList.toggle('active', menuOpen);
+  if (menuOpen) closeBench();
+}
+
+// ─── INPUT ───
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (document.getElementById('bench-panel').classList.contains('active')) {
+      closeBench();
+      return;
+    }
+    toggleMenu();
+    return;
+  }
+
+  if (e.key === 'b' || e.key === 'B') { runBenchmark(); return; }
+  if (e.key === 'p' || e.key === 'P') { toggleParticles(); return; }
+  if (e.key === 'r' || e.key === 'R') { toggleRenderMode(); return; }
+  if (e.key === 'x' || e.key === 'X') { resetWorld(); return; }
+
+  // Hotbar selection
+  const num = parseInt(e.key);
+  if (num >= 1 && num <= 9) {
+    document.querySelectorAll('.hotbar-slot').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.hotbar-slot[data-key="${num}"]`)?.classList.add('active');
+  }
+});
+
+document.addEventListener('mousemove', (e) => {
+  targetMX = e.clientX;
+  targetMY = e.clientY;
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+
+document.addEventListener('click', (e) => {
+  // Only register clicks not on UI
+  if (e.target.closest('#menu-panel') || e.target.closest('#bench-panel') || e.target.closest('#hotbar')) return;
+
+  damage(1);
+  spawnParticles(e.clientX, e.clientY, 8);
+  addChat('[HIT]', `${Math.floor(Math.random() * 10 + 1)} damage dealt`);
+
+  // Screen shake
+  document.body.style.animation = 'shake 0.15s';
+  setTimeout(() => document.body.style.animation = '', 150);
+});
+
+// Screen shake keyframes
+const style = document.createElement('style');
+style.textContent = `
+@keyframes shake {
+  0%, 100% { transform: translate(0); }
+  25% { transform: translate(-3px, 2px); }
+  50% { transform: translate(3px, -2px); }
+  75% { transform: translate(-2px, 3px); }
+}`;
+document.head.appendChild(style);
+
+// ─── ANTI-ALIAS / MOUSE LOCK ───
+canvas.addEventListener('click', () => {
+  if (document.pointerLockElement !== canvas) {
+    canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
+    // Not forcing lock to keep UI accessible
+  }
+});
+
+// ─── START ───
+addChat('[SERVER]', '§aBlockFPS v2.7 initialized');
+addChat('[SERVER]', `§7${blocks.length} world objects loaded`);
+setTimeout(() => addChat('[HINT]', '§8Click to attack · ESC for menu · B for benchmark'), 2000);
+
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
